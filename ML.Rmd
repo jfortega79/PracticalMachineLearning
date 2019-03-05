@@ -1,0 +1,120 @@
+---
+title: "Practical Machine Learning Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+The problem is predicting the manner in which the barbell lift exercise is performed using the data from accelerometers on belt, forearm, arm and dumbell.
+
+
+## Loading and cleaning Data
+
+
+```{r cero, echo=TRUE}
+library(caret)
+library(rattle)
+library(randomForest)
+library(gbm)
+```
+
+
+We being assuming the databases (Train and Test) are already available at the working directory
+
+```{r uno, echo=TRUE}
+traindata <- read.csv("./pml-training.csv",header = TRUE)
+testdata <- read.csv("./pml-testing.csv",header = TRUE)
+```
+
+The Test Data contains the 20 cases we will use to predict. So we will split the Train Data in Train & Test to build the model. 
+
+```{r dos, echo=TRUE}
+str(traindata)
+```
+
+We will eliminate any column in the Train Data with more than 90% missing values. We dont need to do that in the test data (we could just to make it tidier), since all variables eliminates in the Train Data become useless in the Test Data.
+We also remove the first 7 columns since they are ids.
+Finally we will check for variables with Near Zero Variance
+
+
+```{r tres, echo=TRUE}
+borrar <- which(colSums(is.na(traindata)|traindata=="")>0.9*dim(traindata)[1])
+traindata2 <- traindata[,-borrar]
+traindata3 <- traindata2[,-c(1:7)]
+Novar <- nearZeroVar(traindata3)
+Novar
+```
+
+There are not any variable left with Near Zero Variance.
+Now we partition the data in 70% Train and 30% Test
+
+```{r cuatro, echo=TRUE}
+set.seed(1234)
+inTrain <- createDataPartition(traindata3$classe,p=0.7,list=FALSE)
+traindata4 <- traindata3[inTrain,]
+testdata4 <- traindata3[-inTrain,]
+```
+
+
+## Modeling
+
+We will build and compare 3 models:
+- Tree
+- Randon Forest
+- Boosting
+
+
+### Tree
+
+```{r arbol, echo=TRUE}
+abc1 <- train(classe~.,data = traindata4, method = "rpart")
+fancyRpartPlot(abc1$finalModel)
+def1 <- predict(abc1,newdata = testdata4)
+CM <- confusionMatrix(testdata4$classe,def1)
+CM
+CM$overall[1]
+```
+
+We obtain an Accuracy of 0.49 with a Tree
+
+### Random Forest
+
+```{r RF, echo=TRUE}
+abc2 <- train(classe~.,data = traindata4, method = "rf")
+abc2$finalModel
+plot(abc2)
+def2 <- predict(abc2,newdata = testdata4)
+CM <- confusionMatrix(testdata4$classe,def2)
+CM
+CM$overall[1]
+```
+
+We obtain an Accuracy of 0.99 with a Random Forest, with 27 Selected Predictors.
+
+
+### Gradient Boosting
+
+```{r GB, echo=TRUE}
+abc3 <- train(classe~.,data = traindata4, method = "gbm")
+abc3
+plot(abc3)
+def3 <- predict(abc3,newdata = testdata4)
+CM <- confusionMatrix(testdata4$classe,def3)
+CM
+CM$overall[1]
+```
+
+We obtain an Accuracy of 0.97
+
+### Best Model
+
+We conclude the best model is the Random Forest. We will apply it to the 20 new cases. 
+
+```{r final, echo=TRUE}
+def4 <- predict(abc2,newdata = testdata)
+def4
+```
